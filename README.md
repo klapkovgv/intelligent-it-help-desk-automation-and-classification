@@ -1,48 +1,15 @@
 # intelligent-it-help-desk-automation-and-classification
+
+>  This is an educational project developed during my university studies,
+> reflecting my hands-on experience.
+
 This project aims to build a pipeline that automatically processes incoming messages to an IT department. The goal is to create a system that classifies requests by routing clear, script-readable information to a rule-based engine (Regex) and sending ambiguous cases to an LLM.
 
-Initially, a classification system that processes messages seems quite straightforward in theory. We set up rules for regex, it collects messages based on keywords, and then messages that were not processed need to be passed to an LLM. It seems very simple, but during implementation, additional questions arise. 
-
-Before getting start, let me outline the input data and requirements here.
-
-Input Data: Connection problem, Hardware request, Access error, Access request, I'am getting an error message, Mail group addition, Report request, System error, Server unreachable, Application not working, VPN connection problem, VPN access request, Software installation, New user request, Permission request. 
-
-The dataset Console-AI/IT-helpdesk-synthetic-tickets (https://huggingface.co/datasets/Console-AI/IT-helpdesk-synthetic-tickets) from Hugging Face was used. It contains 500 rows and 7 columns. Appeared to be a good fit for the project.
-
-The system is designed with 3 key stages:
-
-Stage 1: Pre-Classification with Regex
-
-In this stage, incoming IT department requests are processed by a python script using Regular Expressions. The script splits messages into two primary categories "ERROR" and "REQUEST". Classification is based on keyword matching, messages containing "problem", "error", "not working", "unreachable", "issue" are tagged as ERROR; those with "request", "addition", "installation" are tagged as REQUEST.
-
-Stage 2: Hybrid Workflow Design
-
-For this stage, a logical workflow deagram must be created and explained. The diagram must imclude:
-- Data input — incoming messages to the IT departmant
-- Regex processing — messages are first classified as ERROR or REQUEST
-- Routing to AI model — cases that cannot be processed by regex are sent to an Artificial Intelligence model for futher classification
-- Final category assignment — after both regex and AI processing, each message is labeled with its final category
-
-Stage 3: LLM Prompt Engineering
-
-The focus is on prompt engineering. An effective instruction for the AI model must be written to ensure the generated response meets all requirements. Specifically, the model must accurately determine the correct category for emails labeled as ambiguous by the Regex filter. The categories that must be included in the prompt are: Network, Software, Account, Training, Security, Licensing, Communication, RemoteWork, HardWare, Infrastructure, Performance. 
-
-
-## Data Preprocessing
-
-I started the code with data preprocessing using the Console-AI/IT-helpdesk-synthetic-tickets dataset from Hugging Face. The dataset is ready-to-use and even allows me to verify my results against the categories provided by the LLM later. 
-
-To the dataset, I added 9 messages from my exam. I transited all the data into a new table with 3 columns: id, subject, and description. As an example, here is the first row from dataset:
-
-| id | subject | description |
-| :--- | :--- | :--- |
-| 1aiu3lrqi | Hey IT! Our network printer keeps disconnecting. | Hey IT! Our network printer keeps disconnecting intermittently and requires manual IP reconfiguration each time. It's becoming quite a hassle, especially during busy hours. A few folks in the office have mentioned they're experiencing the same issue. Could you look into this? Thanks! |
-
-I have not explored entire dataset yet. This will likely be necessary when I get to the prompt engineering stage. I am already thinking about how I will need to analyze the messages and write effective instructions for the classification task.
+Initially, a classification system that processes messages seems quite straightforward in theory. We define regex rules to match messages based on keywords, and any unmatched messages are passed to an LLM. Simple enough, but during implementation, complications emerge.
 
 ## Pre-classification with Regex
 
-Next, I code a regex function in python:
+A regex function:
 ```python
 def classify_message(text):
     text = text.lower()
@@ -54,10 +21,8 @@ def classify_message(text):
         return 'Ambiguous'
 ```
 
-- For `error_pattern`, I used the keywords: problem, error, not working, and issue;
+- For `error_pattern`, I used the keywords: problem, error, not working, issue, and unreachable;
 - For `request_pattern`, I used the keywords: request, addition, and installation.
-
-Then, I applied `classify_message` function to the `description` column of my dataset. Ambiguous 327, Error 120, and Request 62 were the result of processing. 
 
 ## Hybrid Workflow design
 
@@ -78,17 +43,12 @@ graph TD
     E --> F[3. LLM CLASSIFICATION]
     
     subgraph "LLM Detailed Categories"
-    F -.-> F1[Network]
-    F -.-> F2[Software]
-    F -.-> F3[Account]
-    F -.-> F4[Training]
-    F -.-> F5[Security]
-    F -.-> F6[Licensing]
-    F -.-> F7[Communication]
-    F -.-> F8[RemoteWork]
-    F -.-> F9[HardWare]
-    F -.-> F10[Infrastructure]
-    F -.-> F11[Performance]
+    F -.-> F1[Connectivity]
+    F -.-> F2[Hardware]
+    F -.-> F3[Access]
+    F -.-> F4[Software]
+    F -.-> F5[User Management]
+    F -.-> F6[Reporting]
     end
     
     C --> G[4. FINAL CATEGORY ASSIGNMENT]
@@ -98,46 +58,34 @@ graph TD
     F3 --> G
     F4 --> G
     F5 --> G
-    F6 --> G
-    F7 --> G
-    F8 --> G
-    F9 --> G
-    F10 --> G
-    F11 --> G
-    
+    F6 --> G  
 ```
 
 ## LLM Prompt Engineering
 
-I started this stage by studying the official Prompt design strategies documentation from the Gemini API. I had never done prompt engineering before, so here I will describe my first steps and the application of basic concepts.
+I began by studying the official prompt design strategies documentation from the Gemini API. I had never done prompt engineering before, so here I will describe my experience and the application of basic concepts.
 
-Reference: https://ai.google.dev/gemini-api/docs/prompting-strategies
-
-According to the documentation, Prompt Design is the process of creating prompts or natural language requests that guide a language model to generate accurate and relevant responses.
+According to the documentation, prompt design is the process of creating prompts or natural language requests that guide a language model to generate accurate and relevant responses.
 
 The first concept I applied is **Clear and specific instructions**. In the documentation, this is described as the most effective way to customize model behavior.
 
 In my designed prompt, this concept is implemented through the following elements:
-- Role Prompting: I assigned the model a role — IT help desk ticket classifier. This sets the context and professional tone for the response;
-- Closed Vocabulary: The prompt includes a clear list of 11 categories. The model should not invent its own category names but must choose from the provided options;
+- Role Prompting: I assigned the model a role — "You are an IT Help Desk specialist". This sets the context and professional tone for the response;
+- Closed Vocabulary: The prompt includes a clear list of 6 categories. The model should not invent its own category names but must choose from the provided options;
 - Constraints: The sentence "Your job is to categorize the following ticket into ONE of these categories" clearly instructs the model that classification must be unambiguous, without listing multiple options;
 - Strict Response Format: The instruction "Return ONLY the category name without any additional text" is a classic example of format constraints, eliminating unnecessary explanations from the model.
 
 ### My prompt version
 ```python
 prompt = f"""
-You are an IT help desk ticket classifier. Your job is to categorize the following ticket into ONE of these categories:
-- Network.
-- Software.
-- Account.
-- Training.
-- Security.
-- Licensing.
-- Communication.
-- RemoteWork.
-- Hardware.
-- Infrastructure.
-- Performance.
+You are an IT Support specialist. Your task is to classify the incoming message into ONLY ONE of the categories listed below.
+    Categories:
+    - Reporting.
+    - Connectivity.
+    - Hardware.
+    - Access.
+    - Software.
+    - User Management.
 
 Ticket description: {description}
 
@@ -149,16 +97,11 @@ The next important concept in the documentation is the distinction between Zero-
 - **Zero-shot** is when the model receives the task without examples;
 - **Few-shot** is when the prompt includes several examples of what a correct response looks like. The model identifies patterns from these examples and applies them to new data.
 
-At this stage, I used a Zero-shot prompt. This is necessary to obtain baseline data and compare the "raw" model's performance against the original dataset from Hugging Face.
+At this stage, I used a Zero-shot prompt. This is necessary to obtain baseline data and compare the "raw" model's performance against the original dataset.
+
+Reference: https://ai.google.dev/gemini-api/docs/prompting-strategies
 
 ## Result Analysis
-
-After running the LLM, I wrote code to merge the original Hugging Face dataset with the table generated after the classifier worked. 
-
-According to the analysis:
-
-- Total messages processed by LLM are 327 out of 500 (from the Hugging Face dataset) + 6 of my custom examples;
-- Correctly classified: 149.
 
 These results clearly show that the current zero-shot prompt needs improvement. The next logical step is to customize the prompt by adding few-shot examples.
 
@@ -166,37 +109,6 @@ These results clearly show that the current zero-shot prompt needs improvement. 
 
 After analyzing the initial results, it became clear that the model struggled. For instance, polite greetings were misclassified as "Communication", and requests for help with software navigation were mistakenly tagged as "Software" technical bugs.
 
-To address this, I first attempted a Few-Shot approach. I selected a small sample of 10 messages and provided the model with 5 examples of correct classifications. However, the results remained unsatisfactory, with a 50% error rate on this sample. The model continued to prioritize superficial keywords over the actual intent of the user. 
-
 Instead of simply providing more examples, I decided to deepen the Clear and Specific Instructions concept. I shifted from a simple list of categories to a structured "Classification Logic" combined with "Critical Rules".
 
 This approach acts as a decision-making framework for the LLM, explicitly telling it what to ignore and what to prioritize.
-
-### Improved Prompt on a group of 10 messages
-
-```python
-prompt = f"""
-You are an IT help desk ticket classifier. Your job is to categorize the following ticket into ONE of these categories:
-- Network, Software, Account, Training, Security, Licensing, Communication, RemoteWork, Hardware, Infrastructure, Performance.
-
-Classification Logic (CRITICAL):
-- Training: User doesn't know HOW to use something. Requests for "guidance", "resources", "how-to", "navigation help", or "manuals".
-- Software: Technical bugs, "crashes", "conflicts", "log analysis for errors", "installation", or "configuration" of apps.
-- Security: Data breaches, "malware", "phishing", "unauthorized access", "firewall rules", or "antivirus alerts".
-
-CRITICAL RULES (FOLLOW THESE FIRST):
-1. If the user mentions "guidance" or "resources" regarding a system (even if it's Software or Network), you MUST classify it as 'Training'.
-2. If the user mentions "crashes", "software conflict", or "analyzing logs" to fix a bug, you MUST classify it as 'Software'. 
-3. Use 'Security' ONLY for actual threats or access violations. A software crash is NEVER a security issue.
-4. Do NOT classify as 'Communication' just because it's an email/polite message. Only use it for communication software issues.
-5. Ignore greetings ("Hello"), signatures ("Thanks, Alex"), and emojis. Focus only on the core request.
-
-Ticket description: {description}
-
-Return ONLY the category name without any additional text.
-"""
-```
-
-I tested this prompt on a control group of 10 messages. The result was 100% accuracy for this sample.
-
-Note: To fully scale this solution, the "Classification Logic" section needs to be expanded for the remaining categories (Network, Hardware, Licensing, etc.), providing the model with a complete heuristic for every possible scenario.

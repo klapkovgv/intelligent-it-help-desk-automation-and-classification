@@ -107,8 +107,11 @@ These results clearly show that the current zero-shot prompt needs improvement. 
 
 ## From Zero-Shot to Advanced Instructions
 
-After analyzing the initial results, it became clear that the model struggled. For instance, polite greetings were misclassified as "Communication", and requests for help with software navigation were mistakenly tagged as "Software" technical bugs.
+After analyzing the initial results, it became clear that the model struggled. For instance, a user reporting that the HR portal won't load and the screen freezes — was classified as "Connectivity" instead of "Software". This is a reasonable mistake: the message mentions login issues and slowness, which superficially resemble network problems.  
 
-Instead of simply providing more examples, I decided to deepen the Clear and Specific Instructions concept. I shifted from a simple list of categories to a structured "Classification Logic" combined with "Critical Rules".
+To improve LLM accuracy, the zero-shot prompt was replaced with a few-shot prompt combined with explicit Classification Logic:
+* Few-shot examples
+* Classification Logic
+* Strict output constraints
 
 This approach acts as a decision-making framework for the LLM, explicitly telling it what to ignore and what to prioritize.
